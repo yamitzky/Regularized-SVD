@@ -1,6 +1,11 @@
+data
+
+### https://raw.github.com/github/gitignore/8f48bb5d15b165f7ea144a1df3c4ee4cab30bb28/Python.gitignore
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
+*$py.class
 
 # C extensions
 *.so
@@ -55,3 +60,39 @@ docs/_build/
 
 # PyBuilder
 target/
+
+
+### https://raw.github.com/github/gitignore/8f48bb5d15b165f7ea144a1df3c4ee4cab30bb28/Global/IPythonNotebook.gitignore
+
+# Temporary data
+.ipynb_checkpoints/
+
+
+### https://raw.github.com/github/gitignore/8f48bb5d15b165f7ea144a1df3c4ee4cab30bb28/Global/OSX.gitignore
+
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icon must end with two \r
+Icon
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+
