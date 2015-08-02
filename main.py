@@ -1,17 +1,24 @@
 import numpy as np
-from sklearn.decomposition import TruncatedSVD
 
 from dataset import Rating
+from baseline import (AvgPredictor, RandomPredictor,
+                      BetterAvgPredictor, SvdPredictor)
+
 
 if __name__ == "__main__":
     ratings = Rating.load("u1.base")
     ratings_test = Rating.load("u1.test")
 
-    svd = TruncatedSVD(n_components=16, algorithm='arpack')
-    topic = svd.fit_transform(ratings.mat)
-    pred = svd.inverse_transform(topic)
-    pred[pred < 1] = 1
-    pred[pred > 5] = 5
+    # baseline
+    predictors = (
+        RandomPredictor(),
+        AvgPredictor(),
+        BetterAvgPredictor(),
+        SvdPredictor(K=13)
+    )
 
-    np.average([np.abs(r - pred[uid, iid])
-                for uid, iid, r in ratings_test.data])
+    for model in predictors:
+        model.fit(ratings)
+        err = np.average([np.abs(r - model.predict(uid, iid))
+                          for uid, iid, r in ratings_test.data])
+        print model.__class__.__name__, err

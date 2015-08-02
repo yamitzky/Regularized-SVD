@@ -1,3 +1,4 @@
+from itertools import groupby
 from operator import itemgetter
 
 import scipy as sp
@@ -9,3 +10,11 @@ def to_sparse(ratings, shape=None):
     i = map(_1, ratings)
     j = map(_2, ratings)
     return sp.sparse.coo_matrix((data, (i, j)), shape=shape).tocsr()
+
+
+def sgroupby(iterable, key):
+    return groupby(sorted(iterable, key=key), key)
+
+
+def clamp(num, min_, max_):
+    return min(max(num, min_), max_)
