@@ -1,4 +1,7 @@
 data
+*.html
+*.c
+*.pyxbldc
 
 ### https://raw.github.com/github/gitignore/8f48bb5d15b165f7ea144a1df3c4ee4cab30bb28/Python.gitignore
 

@@ -21,9 +21,11 @@ class Rating(object):
         with open("data/%s" % name) as f:
             ratings = []
             for line in f:
-                user_id, item_id, rating, timestamp = \
-                    map(int, line.strip().split("\t"))
-                ratings.append((user_id, item_id, float(rating)))
+                line = line.strip().split("\t")
+                user_id, item_id =\
+                    int(line[0]), int(line[1])
+                rating = float(line[2])
+                ratings.append((user_id, item_id, rating))
 
             return ratings
 

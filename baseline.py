@@ -1,7 +1,10 @@
 from operator import itemgetter
+from itertools import imap
 
 import numpy as np
 from sklearn.decomposition import TruncatedSVD
+from sklearn.utils.extmath import svd_flip
+from scipy.sparse.linalg import svds
 
 from util import sgroupby, to_sparse, clamp
 
@@ -21,14 +24,14 @@ class RandomPredictor(object):
 class AvgPredictor(object):
     def fit(self, ratings):
         self.avg_item = {iid: np.mean(map(key_r, data))
-                         for iid, data in sgroupby(ratings.data, key_i)}
-        self.global_avg_item = np.mean(map(key_r, ratings.data))
+                         for iid, data in sgroupby(ratings, key_i)}
+        self.global_avg_item = np.mean(map(key_r, ratings))
 
         self.offset_user = {
             uid: np.mean([r - self.avg_item[i] for _, i, r in data])
-            for uid, data in sgroupby(ratings.data, key_u)}
+            for uid, data in sgroupby(ratings, key_u)}
         self.global_offset_user = np.mean(
-            [r - self.avg_item[i] for _, i, r in ratings.data]
+            [r - self.avg_item[i] for _, i, r in ratings]
         )
 
     def predict(self, user_id, item_id):
@@ -41,10 +44,10 @@ class AvgPredictor(object):
 class BetterAvgPredictor(object):
     def fit(self, ratings):
         self.avg_item, self.global_avg_item =\
-            self.better_mean(ratings.data, key_i)
+            self.better_mean(ratings, key_i)
 
         offset_data = [(u, i, r - self.avg_item[i])
-                       for u, i, r in ratings.data]
+                       for u, i, r in ratings]
         self.offset_user, self.global_offset_user =\
             self.better_mean(offset_data, key_u)
 
@@ -68,25 +71,47 @@ class BetterAvgPredictor(object):
             1, 5)
 
 
-class SvdPredictor(BetterAvgPredictor):
+class SvdPredictor(object):
     def __init__(self, K):
         self.K = K
 
     def fit(self, ratings):
-        super(SvdPredictor, self).fit(ratings)
+        n_users = max(imap(key_u, ratings)) + 1
+        n_items = max(imap(key_i, ratings)) + 1
 
-        offset = [(u, i, r - self.offset_user[u] - self.avg_item[i])
-                  for u, i, r in ratings.data]
-
-        mat = to_sparse(offset,
-                        shape=(len(ratings.users), len(ratings.items)))
+        mat = to_sparse(ratings,
+                        shape=(n_users, n_items))
         svd = TruncatedSVD(n_components=self.K, algorithm='arpack')
-        topic = svd.fit_transform(mat)
-        self.pred = svd.inverse_transform(topic)
+        self.U = svd.fit_transform(mat)  # U.dot(Sigma)
+        self.VT = svd.components_  # VT
 
     def predict(self, user_id, item_id):
+        return clamp(self.U[user_id].dot(self.VT[:, item_id]), 1, 5)
+
+
+class SvdAvgPredictor(AvgPredictor):
+    def __init__(self, K):
+        self.K = K
+
+    def fit(self, ratings):
+        super(SvdAvgPredictor, self).fit(ratings)
+
+        n_users = max(imap(key_u, ratings)) + 1
+        n_items = max(imap(key_i, ratings)) + 1
+
+        offset = [(u, i, r - self.offset_user[u] - self.avg_item[i])
+                  for u, i, r in ratings]
+
+        mat = to_sparse(offset,
+                        shape=(n_users, n_items))
+        svd = TruncatedSVD(n_components=self.K, algorithm='arpack')
+        self.U = svd.fit_transform(mat)  # U.dot(Sigma)
+        self.VT = svd.components_  # VT
+
+    def predict(self, user_id, item_id):
+        pred = self.U[user_id].dot(self.VT[:, item_id])
         return clamp(
-            self.pred[user_id, item_id] +
+            pred +
             self.avg_item.get(item_id, self.global_avg_item) +
             self.offset_user.get(user_id, self.global_offset_user),
             1, 5)

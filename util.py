@@ -1,6 +1,7 @@
 from itertools import groupby
 from operator import itemgetter
 
+import numpy as np
 import scipy as sp
 import scipy.sparse
 
@@ -18,3 +19,21 @@ def sgroupby(iterable, key):
 
 def clamp(num, min_, max_):
     return min(max(num, min_), max_)
+
+
+def rmse(residuals):
+    return np.sqrt(np.average(np.square(residuals)))
+
+
+def load(name):
+    with open('data/' + name) as f:
+        data = []
+        for line in f:
+            line = line.strip().split('\t')
+            data.append((
+                int(line[0]) - 1,
+                int(line[1]) - 1,
+                float(line[2])
+            ))
+        return data
+
