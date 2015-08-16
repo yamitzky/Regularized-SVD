@@ -7,38 +7,47 @@ cimport cython
 from libcpp.vector cimport vector
 from sklearn.utils import shuffle
 
+from cpprand cimport uniform_int_distribution, mt19937, random_device
 from util import rmse
 
 
+ctypedef uniform_int_distribution[int] int_dist
+
+
 class RSVD(object):
-    def __init__(self, K=100, lrate=0.015, lamb=0.05, max_iter=30):
+    def __init__(self, K=100, lrate=0.015, lamb=0.05):
         self.K = K
         self.lrate = lrate
         self.lamb = lamb
-        self.max_iter = max_iter
 
-    def fit(self, ratings, ratings_test=None):
-        cdef int rank = self.K
-        cdef int max_iter = self.max_iter
-        cdef int n_users, n_items, n_ratings
+    def fit(self, ratings, max_iter=10000, seed=None):
         cdef int c
+        cdef int rank = self.K
+        cdef int n_users, n_items
+        cdef int n_ratings = len(ratings)
+        cdef int s
         cdef np.ndarray[double, ndim=2] U, V, X
+        cdef random_device *rand_gen
 
         assert np.array(ratings).shape[1] == 3, 'ratings must be 3-column array'
 
         n_users = max(imap(lambda x: x[0], ratings)) + 1
         n_items = max(imap(lambda x: x[1], ratings)) + 1
-        n_ratings = len(ratings)
-        U = np.random.uniform(-1.0/rank, 1.0/rank, size=(n_users, rank))
-        V = np.random.uniform(-1.0/rank, 1.0/rank, size=(rank, n_items))
 
-        for c in range(max_iter):
-            X = shuffle(ratings, random_state=c)
-            train(X, U, V, n_ratings, self.K, self.lrate, self.lamb)
-            if ratings_test:
-                err = rmse([r - clamp(U[uid].dot(V[:, iid]), 1, 5)
-                            for uid, iid, r in ratings_test])
-                print err
+        if seed is None:
+            rand_gen = new random_device()
+            s = rand_gen[0]()
+        else:
+            s = <int>seed
+
+        # if already trained, re-train parameters. otherwise, initilize with random values
+        U = self.__dict__.get("U_", np.random.uniform(-1.0/rank, 1.0/rank, size=(n_users, rank)))
+        V = self.__dict__.get("V_", np.random.uniform(-1.0/rank, 1.0/rank, size=(rank, n_items)))
+
+        X = np.array(ratings)
+        train(X, U, V, n_ratings, self.K, self.lrate, self.lamb,
+              max_iter, s)
+
         self.U_ = U
         self.V_ = V
 
@@ -51,11 +60,15 @@ cdef void train(double[:, :] ratings,
                 double[:, :] U,
                 double[:, :] V,
                 int n_ratings, int n_topic,
-                double lrate, double lamb):
-    cdef int i, j, k, t
+                double lrate, double lamb,
+                int max_iter, int seed):
+    cdef int i, j, k, t, c
     cdef double truth, err, u, v
+    cdef mt19937 *engine = new mt19937(seed)
+    cdef int_dist *randint = new int_dist(0, n_ratings - 1)
 
-    for t in range(n_ratings):
+    for c in range(max_iter):
+        t = randint[0](engine[0])
         i = <int>ratings[t, 0]
         j = <int>ratings[t, 1]
         truth = ratings[t, 2]
